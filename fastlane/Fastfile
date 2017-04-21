@@ -1,0 +1,7 @@
+lane :test do
+  android_sdk_update(
+    compile_sdk_version: "25",
+    build_tools_version: "25.0.2",
+    additional_packages: ["extras;google;m2repository", "extras;android;m2repository"]
+  )
+end
