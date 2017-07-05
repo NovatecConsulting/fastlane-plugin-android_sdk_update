@@ -9,9 +9,9 @@ module Fastlane
         # Install Android-SDK via brew
         require 'fastlane/plugin/brew'
         if FastlaneCore::Helper.mac?
-          Actions::BrewAction.run(command: "install Caskroom/cask/android-sdk")
+          Actions::BrewAction.run(command: "cask ls --versions android-sdk || brew cask install android-sdk")
         elsif FastlaneCore::Helper.linux?
-          Actions::BrewAction.run(command: "install android-sdk")
+          Actions::BrewAction.run(command: "ls --versions android-sdk || brew install android-sdk")
         else
           UI.user_error! 'Your OS is currently not supported.'
         end
