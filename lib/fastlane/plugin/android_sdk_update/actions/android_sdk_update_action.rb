@@ -41,8 +41,19 @@ module Fastlane
           Actions.sh "echo y | android update sdk --no-ui --all --filter tools"
         end
 
+        # Accept licenses for all available packages
+        FastlaneCore::CommandExecutor.execute(command: "echo y | #{sdk_manager} --licenses",
+                                              print_all: true,
+                                              print_command: false)
+
+        # Install packages
         packages.each { |package| UI.message("• #{package}") }
         FastlaneCore::CommandExecutor.execute(command: "echo y | #{sdk_manager} '#{packages.join("' '")}'",
+                                              print_all: true,
+                                              print_command: false)
+
+        # Ensure all installed packages are updated
+        FastlaneCore::CommandExecutor.execute(command: "echo y | #{sdk_manager} --update",
                                               print_all: true,
                                               print_command: false)
 
