@@ -6,12 +6,11 @@ module Fastlane
 
     class AndroidSdkUpdateAction < Action
       def self.run(params)
-        # Install Android-SDK via brew
-        require 'fastlane/plugin/brew'
+        # Install Android-SDK
         if FastlaneCore::Helper.mac?
+          require 'fastlane/plugin/brew'
           Actions::BrewAction.run(command: "cask ls --versions android-sdk || brew cask install android-sdk")
-        elsif FastlaneCore::Helper.linux?
-          Actions::BrewAction.run(command: "ls --versions android-sdk || brew install android-sdk")
+          sdk_path = File.realpath("../../..", FastlaneCore::CommandExecutor.which("sdkmanager"))
         else
           UI.user_error! 'Your OS is currently not supported.'
         end
@@ -22,7 +21,6 @@ module Fastlane
         sdk_version = params[:compile_sdk_version] || properties[:compile_sdk_version] || UI.user_error!('No compile sdk version defined.')
 
         # Determine SDK dir and the sdkmanager
-        sdk_path = File.realpath("../..", FastlaneCore::CommandExecutor.which("android"))
         sdk_manager = File.expand_path("tools/bin/sdkmanager", sdk_path)
         Actions.lane_context[SharedValues::ANDROID_SDK_DIR] = sdk_path
 
@@ -35,14 +33,24 @@ module Fastlane
         # Install Packagaes
         UI.header("Install Android-SDK packages")
 
-        unless File.exist?(sdk_manager)
-          # In case an old SDK is installed without the sdkmanager
-          UI.important("Installed Android-SDK tools are outdated.")
-          Actions.sh "echo y | android update sdk --no-ui --all --filter tools"
+        if params[:update_installed_packages]
+          UI.message("Updating all installed packages")
+          # Ensure all installed packages are updated
+          FastlaneCore::CommandExecutor.execute(command: "yes | #{sdk_manager} --update",
+                                                print_all: true,
+                                                print_command: false)
         end
 
+        # Accept licenses for all available packages
+        UI.important("Accepting licenses on your behalf!")
+        FastlaneCore::CommandExecutor.execute(command: "yes | #{sdk_manager} --licenses",
+                                              print_all: true,
+                                              print_command: false)
+
+        # Install packages
+        UI.message("Installing packages...")
         packages.each { |package| UI.message("• #{package}") }
-        FastlaneCore::CommandExecutor.execute(command: "echo y | #{sdk_manager} '#{packages.join("' '")}'",
+        FastlaneCore::CommandExecutor.execute(command: "yes | #{sdk_manager} '#{packages.join("' '")}'",
                                               print_all: true,
                                               print_command: false)
 
@@ -102,7 +110,12 @@ module Fastlane
                                        env_name: "FL_ANDROID_SDK_OVERRIDE_LOCAL_PROPERTIES",
                                        description: "Set the sdk-dir in 'local.properties' so Gradle finds the Android home",
                                        is_string: false,
-                                       default_value: true)
+                                       default_value: true),
+          FastlaneCore::ConfigItem.new(key: :update_installed_packages,
+                                       env_name: "FL_ANDROID_SDK_UPDATE_INSTALLED_PACKAGES",
+                                       description: "Update all installed packages to the latest versions",
+                                       is_string: false,
+                                       default_value: false)
         ]
       end
 
