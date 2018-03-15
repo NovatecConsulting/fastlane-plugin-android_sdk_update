@@ -52,10 +52,12 @@ module Fastlane
                                               print_all: true,
                                               print_command: false)
 
-        # Ensure all installed packages are updated
-        FastlaneCore::CommandExecutor.execute(command: "echo y | #{sdk_manager} --update",
-                                              print_all: true,
-                                              print_command: false)
+        if params[:update_installed_packages]
+          # Ensure all installed packages are updated
+          FastlaneCore::CommandExecutor.execute(command: "echo y | #{sdk_manager} --update",
+                                                print_all: true,
+                                                print_command: false)
+        end
 
         if params[:override_local_properties]
           UI.message("Override local.properties")
@@ -113,7 +115,12 @@ module Fastlane
                                        env_name: "FL_ANDROID_SDK_OVERRIDE_LOCAL_PROPERTIES",
                                        description: "Set the sdk-dir in 'local.properties' so Gradle finds the Android home",
                                        is_string: false,
-                                       default_value: true)
+                                       default_value: true),
+          FastlaneCore::ConfigItem.new(key: :update_installed_packages,
+                                       env_name: "FL_ANDROID_SDK_UPDATE_INSTALLED_PACKAGES",
+                                       description: "Update all installed packages to the latest versions",
+                                       is_string: false,
+                                       default_value: false)
         ]
       end
 
