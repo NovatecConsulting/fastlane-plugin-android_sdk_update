@@ -6,12 +6,17 @@ module Fastlane
 
     class AndroidSdkUpdateAction < Action
       def self.run(params)
-        # Install Android-SDK via brew
-        require 'fastlane/plugin/brew'
+        # Install Android-SDK
         if FastlaneCore::Helper.mac?
+          require 'fastlane/plugin/brew'
           Actions::BrewAction.run(command: "cask ls --versions android-sdk || brew cask install android-sdk")
+          sdk_path = File.realpath("../..", FastlaneCore::CommandExecutor.which("android"))
         elsif FastlaneCore::Helper.linux?
-          Actions::BrewAction.run(command: "ls --versions android-sdk || brew install android-sdk")
+          sdk_path = params[:linux_sdk_install_dir]
+          if !File.exist?("#{sdk_path}/tools/android")
+            Actions.sh("wget #{params[:linux_sdk_download_url]}")
+            Actions.sh("unzip sdk-tools-linux-3859397.zip -d $HOME/android-sdk && rm sdk-tools-linux-3859397.zip")
+          end
         else
           UI.user_error! 'Your OS is currently not supported.'
         end
@@ -22,7 +27,6 @@ module Fastlane
         sdk_version = params[:compile_sdk_version] || properties[:compile_sdk_version] || UI.user_error!('No compile sdk version defined.')
 
         # Determine SDK dir and the sdkmanager
-        sdk_path = File.realpath("../..", FastlaneCore::CommandExecutor.which("android"))
         sdk_manager = File.expand_path("tools/bin/sdkmanager", sdk_path)
         Actions.lane_context[SharedValues::ANDROID_SDK_DIR] = sdk_path
 
@@ -96,6 +100,16 @@ module Fastlane
 
       def self.available_options
         [
+          FastlaneCore::ConfigItem.new(key: :linux_sdk_install_dir,
+                                       env_name: "FL_ANDROID_LINUX_SDK_INSTALL_DIR",
+                                       description: "Install directory for Android SDK on Linux",
+                                       optional: true,
+                                       default_value: "$HOME/android-sdk"),
+          FastlaneCore::ConfigItem.new(key: :linux_sdk_download_url,
+                                       env_name: "FL_ANDROID_LINUX_SDK_DOWNLOAD_URL",
+                                       description: "Download URL for Android SDK on Linux",
+                                       optional: true,
+                                       default_value: "https://dl.google.com/android/repository/sdk-tools-linux-3859397.zip"),
           FastlaneCore::ConfigItem.new(key: :compile_sdk_version,
                                        env_name: "FL_ANDROID_COMPILE_SDK_VERSION",
                                        description: "Compile-SDK Version of the project. Can also defined in 'gradle.properties'",
