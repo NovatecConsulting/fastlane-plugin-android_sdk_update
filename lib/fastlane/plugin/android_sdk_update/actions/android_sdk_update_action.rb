@@ -13,7 +13,7 @@ module Fastlane
           sdk_path = File.realpath("../..", FastlaneCore::CommandExecutor.which("android"))
         elsif FastlaneCore::Helper.linux?
           sdk_path = File.expand_path(params[:linux_sdk_install_dir])
-          if File.exist?("#{sdk_path}/tools/android")
+          if File.exist?("#{sdk_path}/tools/sdkmanager")
             UI.message("Using existing android-sdk at #{sdk_path}")
           else
             UI.message("Downloading android-sdk to #{sdk_path}")
@@ -52,6 +52,14 @@ module Fastlane
           Actions.sh "yes | android update sdk --no-ui --all --filter tools"
         end
 
+        if params[:update_installed_packages]
+          UI.message("Updating all installed packages")
+          # Ensure all installed packages are updated
+          FastlaneCore::CommandExecutor.execute(command: "yes | #{sdk_manager} --update",
+                                                print_all: true,
+                                                print_command: false)
+        end
+
         # Accept licenses for all available packages
         UI.important("Accepting licenses on your behalf!")
         FastlaneCore::CommandExecutor.execute(command: "yes | #{sdk_manager} --licenses",
@@ -64,14 +72,6 @@ module Fastlane
         FastlaneCore::CommandExecutor.execute(command: "yes | #{sdk_manager} '#{packages.join("' '")}'",
                                               print_all: true,
                                               print_command: false)
-
-        if params[:update_installed_packages]
-          UI.message("Updating all installed packages")
-          # Ensure all installed packages are updated
-          FastlaneCore::CommandExecutor.execute(command: "yes | #{sdk_manager} --update",
-                                                print_all: true,
-                                                print_command: false)
-        end
 
         if params[:override_local_properties]
           UI.message("Override local.properties")
