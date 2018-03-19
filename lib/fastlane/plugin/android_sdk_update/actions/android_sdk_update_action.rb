@@ -1,36 +1,17 @@
 module Fastlane
   module Actions
-    module SharedValues
-      ANDROID_SDK_DIR = :ANDROID_SDK_DIR
-    end
-
     class AndroidSdkUpdateAction < Action
       def self.run(params)
-        # Install Android-SDK
-        if FastlaneCore::Helper.mac?
-          require 'fastlane/plugin/brew'
-          Actions::BrewAction.run(command: "cask ls --versions android-sdk || brew cask install android-sdk")
-          sdk_path = File.realpath("../../..", FastlaneCore::CommandExecutor.which("sdkmanager"))
-        elsif FastlaneCore::Helper.linux?
-          sdk_path = File.expand_path(params[:linux_sdk_install_dir])
-          if File.exist?("#{sdk_path}/tools/sdkmanager")
-            UI.message("Using existing android-sdk at #{sdk_path}")
-          else
-            UI.message("Downloading android-sdk to #{sdk_path}")
-            download_and_extract_sdk(params[:linux_sdk_download_url], sdk_path)
-          end
-        else
-          UI.user_error! 'Your OS is currently not supported.'
-        end
+        Actions::AndroidSdkLocateAction.run(params)
+        sdk_path = Actions.lane_context[SharedValues::ANDROID_SDK_DIR]
 
         require 'java-properties'
         properties = File.exist?("#{Dir.pwd}/gradle.properties") ? JavaProperties.load("#{Dir.pwd}/gradle.properties") : {}
         tools_version = params[:build_tools_version] || properties[:build_tools_version] || UI.user_error!('No build tools version defined.')
         sdk_version = params[:compile_sdk_version] || properties[:compile_sdk_version] || UI.user_error!('No compile sdk version defined.')
 
-        # Determine SDK dir and the sdkmanager
+        # Determine the sdkmanager path
         sdk_manager = File.expand_path("tools/bin/sdkmanager", sdk_path)
-        Actions.lane_context[SharedValues::ANDROID_SDK_DIR] = sdk_path
 
         packages = params[:additional_packages]
         packages << "platforms;android-#{sdk_version}"
@@ -68,15 +49,6 @@ module Fastlane
         end
       end
 
-      def self.download_and_extract_sdk(download_url, sdk_path)
-        FastlaneCore::CommandExecutor.execute(
-          command: "wget -O /tmp/android-sdk-tools.zip #{download_url}",
-          print_all: true, print_command: true)
-        FastlaneCore::CommandExecutor.execute(
-          command: "unzip /tmp/android-sdk-tools.zip -d #{sdk_path}",
-          print_all: true, print_command: true)
-      end
-
       #####################################################
       # @!group Documentation
       #####################################################
@@ -87,7 +59,7 @@ module Fastlane
 
       def self.details
         [
-          "The initial Android-SDK will be installed with Homebrew/Linuxbrew.",
+          "The initial Android-SDK will be installed with Homebrew (mac) or downloaded & unzipped (Linux).",
           "Updates for the specified packages will be automatically installed.",
           "Instructions to configure 'compile_sdk_version' and 'build_tools_version': https://github.com/NovaTecConsulting/fastlane-plugin-android_sdk_update"
         ].join("\n")
@@ -112,7 +84,7 @@ module Fastlane
                                        env_name: "FL_ANDROID_LINUX_SDK_INSTALL_DIR",
                                        description: "Install directory for Android SDK on Linux",
                                        optional: true,
-                                       default_value: ENV['ANDROID_HOME'] || ENV['ANDROID_SDK'] || "~/.android-sdk"),
+                                       default_value: ENV['ANDROID_HOME'] || ENV['ANDROID_SDK_ROOT'] || "~/.android-sdk"),
           FastlaneCore::ConfigItem.new(key: :linux_sdk_download_url,
                                        env_name: "FL_ANDROID_LINUX_SDK_DOWNLOAD_URL",
                                        description: "Download URL for Android SDK on Linux",
@@ -153,7 +125,7 @@ module Fastlane
       end
 
       def self.authors
-        ["Philipp Burgk", "Michael Ruhl"]
+        ["Philipp Burgk", "Michael Ruhl", "adamcohenrose"]
       end
 
       def self.is_supported?(platform)
