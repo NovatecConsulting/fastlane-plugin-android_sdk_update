@@ -10,7 +10,7 @@ module Fastlane
         if FastlaneCore::Helper.mac?
           require 'fastlane/plugin/brew'
           Actions::BrewAction.run(command: "cask ls --versions android-sdk || brew cask install android-sdk")
-          sdk_path = File.realpath("../..", FastlaneCore::CommandExecutor.which("sdkmanager"))
+          sdk_path = File.realpath("../../..", FastlaneCore::CommandExecutor.which("sdkmanager"))
         elsif FastlaneCore::Helper.linux?
           sdk_path = File.expand_path(params[:linux_sdk_install_dir])
           if File.exist?("#{sdk_path}/tools/sdkmanager")
