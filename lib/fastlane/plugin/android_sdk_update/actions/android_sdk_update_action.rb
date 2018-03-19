@@ -112,7 +112,7 @@ module Fastlane
                                        env_name: "FL_ANDROID_LINUX_SDK_INSTALL_DIR",
                                        description: "Install directory for Android SDK on Linux",
                                        optional: true,
-                                       default_value: "~/.android-sdk"),
+                                       default_value: ENV['ANDROID_HOME'] || ENV['ANDROID_SDK'] || "~/.android-sdk"),
           FastlaneCore::ConfigItem.new(key: :linux_sdk_download_url,
                                        env_name: "FL_ANDROID_LINUX_SDK_DOWNLOAD_URL",
                                        description: "Download URL for Android SDK on Linux",
