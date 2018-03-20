@@ -25,15 +25,18 @@ module Fastlane
         # set environment variable so can be picked up by CI
         ENV['ANDROID_SDK_DIR'] = sdk_path
         Actions.lane_context[SharedValues::ANDROID_SDK_DIR] = sdk_path
+        # add the platform-tools directory to the PATH so calls to `adb` work from other plugins
+        if !":#{ENV['PATH']}:".include? ":#{sdk_path}/platform-tools:"
+          UI.message("Adding adb directory to PATH")
+          ENV['PATH'] += ":#{sdk_path}/platform-tools"
+        end
       end
 
       def self.download_and_extract_sdk(download_url, sdk_path)
-        FastlaneCore::CommandExecutor.execute(
-          command: "wget -O /tmp/android-sdk-tools.zip #{download_url}",
-          print_all: true, print_command: true)
-        FastlaneCore::CommandExecutor.execute(
-          command: "unzip /tmp/android-sdk-tools.zip -d #{sdk_path}",
-          print_all: true, print_command: true)
+        FastlaneCore::CommandExecutor.execute(command: "wget -O /tmp/android-sdk-tools.zip #{download_url}",
+                                              print_all: true, print_command: true)
+        FastlaneCore::CommandExecutor.execute(command: "unzip -q /tmp/android-sdk-tools.zip -d #{sdk_path}",
+                                              print_all: true, print_command: true)
       end
 
       def self.download_and_extract_sdk(download_url, sdk_path)
