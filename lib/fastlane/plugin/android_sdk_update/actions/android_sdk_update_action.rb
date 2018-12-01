@@ -1,28 +1,16 @@
 module Fastlane
   module Actions
-    module SharedValues
-      ANDROID_SDK_DIR = :ANDROID_SDK_DIR
-    end
-
     class AndroidSdkUpdateAction < Action
       def self.run(params)
-        # Install Android-SDK
-        if FastlaneCore::Helper.mac?
-          require 'fastlane/plugin/brew'
-          Actions::BrewAction.run(command: "cask ls --versions android-sdk || brew cask install android-sdk")
-          sdk_path = File.realpath("../../..", FastlaneCore::CommandExecutor.which("sdkmanager"))
-        else
-          UI.user_error! 'Your OS is currently not supported.'
-        end
+        # Install Android-SDK via brew
+        sdk_path = determine_sdk(params)
+        sdk_manager = File.expand_path("tools/bin/sdkmanager", sdk_path)
 
+        # Define required packages
         require 'java-properties'
         properties = File.exist?("#{Dir.pwd}/gradle.properties") ? JavaProperties.load("#{Dir.pwd}/gradle.properties") : {}
         tools_version = params[:build_tools_version] || properties[:build_tools_version] || UI.user_error!('No build tools version defined.')
         sdk_version = params[:compile_sdk_version] || properties[:compile_sdk_version] || UI.user_error!('No compile sdk version defined.')
-
-        # Determine SDK dir and the sdkmanager
-        sdk_manager = File.expand_path("tools/bin/sdkmanager", sdk_path)
-        Actions.lane_context[SharedValues::ANDROID_SDK_DIR] = sdk_path
 
         packages = params[:additional_packages]
         packages << "platforms;android-#{sdk_version}"
@@ -30,7 +18,7 @@ module Fastlane
         packages << "tools"
         packages << "platform-tools"
 
-        # Install Packagaes
+        # Install Packages
         UI.header("Install Android-SDK packages")
 
         if params[:update_installed_packages]
@@ -41,23 +29,60 @@ module Fastlane
                                                 print_command: false)
         end
 
-        # Accept licenses for all available packages
-        UI.important("Accepting licenses on your behalf!")
-        FastlaneCore::CommandExecutor.execute(command: "yes | #{sdk_manager} --licenses",
-                                              print_all: true,
-                                              print_command: false)
-
-        # Install packages
         UI.message("Installing packages...")
         packages.each { |package| UI.message("• #{package}") }
         FastlaneCore::CommandExecutor.execute(command: "yes | #{sdk_manager} '#{packages.join("' '")}'",
                                               print_all: true,
                                               print_command: false)
 
+        # Accept licenses for all available packages
+        UI.important("Accepting licenses on your behalf!")
+        FastlaneCore::CommandExecutor.execute(command: "yes | #{sdk_manager} --licenses",
+                                               print_all: true,
+                                               print_command: false)
+
         if params[:override_local_properties]
           UI.message("Override local.properties")
           JavaProperties.write({ :"sdk.dir" => sdk_path }, "#{Dir.pwd}/local.properties")
         end
+      end
+
+      def self.determine_sdk(params)
+        # on mac
+        if FastlaneCore::Helper.mac?
+          require 'fastlane/plugin/brew'
+          Actions::BrewAction.run(command: "cask ls --versions android-sdk || brew cask install android-sdk")
+          sdk_path = File.realpath("../../..", FastlaneCore::CommandExecutor.which("sdkmanager"))
+
+        # on linux
+        elsif FastlaneCore::Helper.linux?
+          sdk_path = File.expand_path(params[:linux_sdk_dir])
+          if File.exist?("#{sdk_path}/tools/bin/sdkmanager")
+            UI.message("Using existing android-sdk at #{sdk_path}")
+          else
+            UI.message("Downloading android-sdk to #{sdk_path}")
+            download_and_extract_sdk(params[:linux_sdk_download_url], sdk_path)
+          end
+
+        else
+          UI.user_error! 'Your OS is currently not supported.'
+        end
+
+        ENV['ANDROID_SDK_ROOT'] = sdk_path
+        sdk_path
+      end
+
+      def self.download_and_extract_sdk(download_url, sdk_path)
+        FastlaneCore::CommandExecutor.execute(command: "wget -O /tmp/android-sdk-tools.zip #{download_url}",
+                                              print_all: true,
+                                              print_command: true)
+        FastlaneCore::CommandExecutor.execute(command: "unzip -qo /tmp/android-sdk-tools.zip -d #{sdk_path}",
+                                              print_all: true,
+                                              print_command: true)
+      ensure
+        FastlaneCore::CommandExecutor.execute(command: "rm -f /tmp/android-sdk-tools.zip",
+                                              print_all: true,
+                                              print_command: true)
       end
 
       #####################################################
@@ -115,13 +140,17 @@ module Fastlane
                                        env_name: "FL_ANDROID_SDK_UPDATE_INSTALLED_PACKAGES",
                                        description: "Update all installed packages to the latest versions",
                                        is_string: false,
-                                       default_value: false)
-        ]
-      end
-
-      def self.output
-        [
-          ['ANDROID_SDK_DIR', 'Path to the android sdk']
+                                       default_value: false),
+          FastlaneCore::ConfigItem.new(key: :linux_sdk_dir,
+                                        env_name: "FL_ANDROID_LINUX_SDK_DIR",
+                                        description: "Directory for Android SDK on Linux",
+                                        optional: true,
+                                        default_value: ENV['ANDROID_HOME'] || ENV['ANDROID_SDK'] || ENV['ANDROID_SDK_ROOT'] || "~/.android-sdk"),
+          FastlaneCore::ConfigItem.new(key: :linux_sdk_download_url,
+                                        env_name: "FL_ANDROID_LINUX_SDK_DOWNLOAD_URL",
+                                        description: "Download URL for Android SDK on Linux",
+                                        optional: true,
+                                        default_value: "https://dl.google.com/android/repository/sdk-tools-linux-4333796.zip")
         ]
       end
 

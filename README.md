@@ -26,8 +26,8 @@ android_sdk_update(
 )
 
 android_sdk_update(
-	compile_sdk_version: "25",
-	build_tools_version: "25.0.2",
+	compile_sdk_version: "27",
+	build_tools_version: "27.0.2",
 	additional_packages: ["extras;google;m2repository", "extras;android;m2repository"]
 )
 ```
@@ -41,8 +41,8 @@ First we set these versions in the property file
 **gradle.properties**
 
 ```java
-compile_sdk_version=25
-build_tools_version=25.0.2
+compile_sdk_version=27
+build_tools_version=27.0.2
 ```
 
 Now we can reference them in our gradle project
